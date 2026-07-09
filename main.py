@@ -45,7 +45,9 @@ def calculer_haversine(lat1, lon1, lat2, lon2):
     a = math.sin(delta_phi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 3)
 
+# CORRECTION DU ROBOT RENDER : Acceptation explicite des requêtes GET et HEAD du Health Check
 @app.get("/")
+@app.head("/")
 def page_daccueil():
     """Route d'accueil requise pour le suivi de santé (Health Check) de Render."""
     return {
@@ -56,6 +58,8 @@ def page_daccueil():
 # Route de calcul universelle (GET et POST) prenant les paramètres directement dans l'URL (Query String)
 @app.get("/api/v1/calculer-distance")
 @app.post("/api/v1/calculer-distance")
+@app.get("/api/v1/calculer-distance/")
+@app.post("/api/v1/calculer-distance/")
 def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: float, lon2: float):
     licence = cle_licence
     
