@@ -6,11 +6,13 @@ from datetime import datetime
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+# Initialisation de l'application FastAPI
 app = FastAPI(title="API Commerciale QGIS - Base de Données")
 
 DB_FILE = "abonnements.db"
 
 def initialiser_base_de_donnees():
+    """Crée la table SQLite et insère les clés de production de test."""
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute('''
@@ -32,6 +34,7 @@ def initialiser_base_de_donnees():
         conn.commit()
     conn.close()
 
+# Initialisation automatique au démarrage du serveur Cloud
 initialiser_base_de_donnees()
 
 class DemandeCalculDistance(BaseModel):
@@ -42,18 +45,29 @@ class DemandeCalculDistance(BaseModel):
     lon2: float
 
 def calculer_haversine(lat1, lon1, lat2, lon2):
+    """Formule mathématique de calcul de distance orthodromique réelle sur Terre."""
     R = 6371.0
     phi1, phi2 = math.radians(lat1), math.radians(lat2)
-    delta_phi, delta_lambda = math.radians(lat2 - lat1), math.radians(lon2 - lon1)
+    delta_phi = math.radians(lat2 - lat1)
+    delta_lambda = math.radians(lon2 - lon1)
     a = math.sin(delta_phi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 3)
 
-# Double enregistrement des routes pour accepter les requêtes avec ou sans slash final
+@app.get("/")
+def page_daccueil():
+    """Route d'accueil requise pour le suivi de santé (Health Check) de Render."""
+    return {
+        "status": "online", 
+        "message": "Bienvenue sur l'API de calcul sécurisée pour votre plugin QGIS"
+    }
+
+# Double configuration des points d'accès (Endpoints) pour parer aux erreurs HTTP 405
 @app.post("/api/v1/calculer-distance")
 @app.post("/api/v1/calculer-distance/")
 def api_calculer_distance(donnees: DemandeCalculDistance):
     licence = donnees.cle_licence
     
+    # Interrogation sécurisée de la base SQLite
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.cursor()
     cursor.execute("SELECT nom_client, statut, date_expiration FROM licences WHERE cle = ?", (licence,))
@@ -66,23 +80,27 @@ def api_calculer_distance(donnees: DemandeCalculDistance):
     nom_client, statut, date_expiration = row
     
     if statut != "actif":
-        raise HTTPException(status_code=403, detail="Accès refusé : Abonnement suspendu.")
+        raise HTTPException(status_code=403, detail="Accès refusé : Cet abonnement a été suspendu.")
         
     date_limite = datetime.strptime(date_expiration, "%Y-%m-%d")
     if datetime.now() > date_limite:
-        raise HTTPException(status_code=403, detail=f"Accès refusé : Expire le {date_expiration}.")
+        raise HTTPException(status_code=403, detail=f"Accès refusé : Abonnement expiré le {date_expiration}.")
     
+    # Exécution de l'algorithme métier protégé sur le Cloud
     distance_km = calculer_haversine(donnees.lat1, donnees.lon1, donnees.lat2, donnees.lon2)
     
     return {
         "status": "success",
         "client": nom_client,
         "expiration": date_expiration,
-        "resultats": {"distance_km": distance_km, "distance_metres": round(distance_km * 1000, 1)}
+        "resultats": {
+            "distance_km": distance_km, 
+            "distance_metres": round(distance_km * 1000, 1)
+        }
     }
 
 if __name__ == "__main__":
     import uvicorn
-    # CORRECTION : Récupère automatiquement le port 10000 imposé par Render
+    # Récupération automatique et obligatoire du port 10000 injecté par Render
     port_cloud = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port_cloud)
