@@ -4,6 +4,7 @@ import sqlite3
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 
 # Initialisation de l'application FastAPI
 app = FastAPI(title="API Commerciale QGIS - Base de Données")
@@ -36,6 +37,14 @@ def initialiser_base_de_donnees():
 # Initialisation automatique au démarrage du serveur Cloud
 initialiser_base_de_donnees()
 
+# Structure des données attendues au format JSON strict
+class DemandeCalculDistance(BaseModel):
+    cle_licence: str
+    lat1: float
+    lon1: float
+    lat2: float
+    lon2: float
+
 def calculer_haversine(lat1, lon1, lat2, lon2):
     """Formule mathématique de calcul de distance orthodromique réelle sur Terre."""
     R = 6371.0
@@ -45,7 +54,6 @@ def calculer_haversine(lat1, lon1, lat2, lon2):
     a = math.sin(delta_phi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 3)
 
-# CORRECTION DU ROBOT RENDER : Acceptation explicite des requêtes GET et HEAD du Health Check
 @app.get("/")
 @app.head("/")
 def page_daccueil():
@@ -55,13 +63,11 @@ def page_daccueil():
         "message": "Bienvenue sur l'API de calcul sécurisée pour votre plugin QGIS"
     }
 
-# Route de calcul universelle (GET et POST) prenant les paramètres directement dans l'URL (Query String)
-@app.get("/api/v1/calculer-distance")
+# Configuration robuste en méthode POST (avec et sans slash) pour accepter le JSON de QGIS
 @app.post("/api/v1/calculer-distance")
-@app.get("/api/v1/calculer-distance/")
 @app.post("/api/v1/calculer-distance/")
-def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: float, lon2: float):
-    licence = cle_licence
+def api_calculer_distance(donnees: DemandeCalculDistance):
+    licence = donnees.cle_licence
     
     # Interrogation sécurisée de la base SQLite
     conn = sqlite3.connect(DB_FILE)
@@ -83,7 +89,7 @@ def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: floa
         raise HTTPException(status_code=403, detail=f"Accès refusé : Abonnement expiré le {date_expiration}.")
     
     # Exécution de l'algorithme métier protégé sur le Cloud
-    distance_km = calculer_haversine(lat1, lon1, lat2, lon2)
+    distance_km = calculer_haversine(donnees.lat1, donnees.lon1, donnees.lat2, donnees.lon2)
     
     return {
         "status": "success",
