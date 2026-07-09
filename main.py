@@ -61,11 +61,11 @@ def page_daccueil():
         "message": "Bienvenue sur l'API de calcul sécurisée pour votre plugin QGIS"
     }
 
-# Double configuration des points d'accès (Endpoints) pour parer aux erreurs HTTP 405
+# Route universelle acceptant les requêtes GET et POST avec paramètres dans l'URL (Query String)
+@app.get("/api/v1/calculer-distance")
 @app.post("/api/v1/calculer-distance")
-@app.post("/api/v1/calculer-distance/")
-def api_calculer_distance(donnees: DemandeCalculDistance):
-    licence = donnees.cle_licence
+def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: float, lon2: float):
+    licence = cle_licence
     
     # Interrogation sécurisée de la base SQLite
     conn = sqlite3.connect(DB_FILE)
