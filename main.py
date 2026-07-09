@@ -4,7 +4,6 @@ import sqlite3
 import os
 from datetime import datetime
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 
 # Initialisation de l'application FastAPI
 app = FastAPI(title="API Commerciale QGIS - Base de Données")
@@ -37,13 +36,6 @@ def initialiser_base_de_donnees():
 # Initialisation automatique au démarrage du serveur Cloud
 initialiser_base_de_donnees()
 
-class DemandeCalculDistance(BaseModel):
-    cle_licence: str
-    lat1: float
-    lon1: float
-    lat2: float
-    lon2: float
-
 def calculer_haversine(lat1, lon1, lat2, lon2):
     """Formule mathématique de calcul de distance orthodromique réelle sur Terre."""
     R = 6371.0
@@ -61,7 +53,7 @@ def page_daccueil():
         "message": "Bienvenue sur l'API de calcul sécurisée pour votre plugin QGIS"
     }
 
-# Route universelle acceptant les requêtes GET et POST avec paramètres dans l'URL (Query String)
+# Route de calcul universelle (GET et POST) prenant les paramètres directement dans l'URL (Query String)
 @app.get("/api/v1/calculer-distance")
 @app.post("/api/v1/calculer-distance")
 def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: float, lon2: float):
@@ -87,7 +79,7 @@ def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: floa
         raise HTTPException(status_code=403, detail=f"Accès refusé : Abonnement expiré le {date_expiration}.")
     
     # Exécution de l'algorithme métier protégé sur le Cloud
-    distance_km = calculer_haversine(donnees.lat1, donnees.lon1, donnees.lat2, donnees.lon2)
+    distance_km = calculer_haversine(lat1, lon1, lat2, lon2)
     
     return {
         "status": "success",
@@ -101,6 +93,6 @@ def api_calculer_distance(cle_licence: str, lat1: float, lon1: float, lat2: floa
 
 if __name__ == "__main__":
     import uvicorn
-    # Récupération automatique et obligatoire du port 10000 injecté par Render
+    # Récupération automatique du port injecté par Render
     port_cloud = int(os.environ.get("PORT", 10000))
     uvicorn.run(app, host="0.0.0.0", port=port_cloud)
