@@ -55,7 +55,8 @@ def calculer_haversine(lat1, lon1, lat2, lon2):
     a = math.sin(delta_phi / 2.0)**2 + math.cos(phi1) * math.cos(phi2) * math.sin(delta_lambda / 2.0)**2
     return round(R * (2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))), 3)
 
-@app.post("/api/v1/calculer-distance")
+@app.post("/api/v1/calculer-distance", options={"include_in_schema": True})
+@app.post("/api/v1/calculer-distance/")
 def api_calculer_distance(donnees: DemandeCalculDistance):
     licence = donnees.cle_licence
     
